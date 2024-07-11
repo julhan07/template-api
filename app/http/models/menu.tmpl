@@ -1,0 +1,107 @@
+package models
+
+import (
+	"fmt"
+	"strings"
+)
+
+type Menu struct {
+	ID        uint   `json:"id"`
+	Name      string `json:"name" validate:"required"`
+	Code      string `json:"code" validate:"required"`
+	Status    bool   `json:"status" validate:""`
+	UrlPath   string `json:"url_path" validate:"required"`
+	Icon      string `json:"icon" validate:""`
+	CreatedAt int    `json:"created_at"`
+	UpdatedAt int    `json:"updated_at"`
+	DeletedAt int    `json:"deleted_at,omitempty"`
+}
+
+func (m *Menu) TableName() string {
+	return "tb_menu"
+}
+
+func (m *Menu) JoinClause() string {
+	joins := []string{}
+	return strings.Join(joins, " ")
+}
+
+func (m *Menu) QueryInsert() string {
+	fields := []string{}
+	values := []string{}
+	valueIndex := 1
+	fields = append(fields, "name")
+	values = append(values, fmt.Sprintf("$%d", valueIndex))
+	valueIndex++
+	fields = append(fields, "code")
+	values = append(values, fmt.Sprintf("$%d", valueIndex))
+	valueIndex++
+	fields = append(fields, "status")
+	values = append(values, fmt.Sprintf("$%d", valueIndex))
+	valueIndex++
+	fields = append(fields, "url_path")
+	values = append(values, fmt.Sprintf("$%d", valueIndex))
+	valueIndex++
+	fields = append(fields, "icon")
+	values = append(values, fmt.Sprintf("$%d", valueIndex))
+	valueIndex++
+
+	// Tambahkan created_at dan updated_at ke fields
+	fields = append(fields, "created_at", "updated_at")
+
+	// Tambahkan placeholder untuk created_at dan updated_at ke values
+	values = append(values, fmt.Sprintf("$%d", valueIndex), fmt.Sprintf("$%d", valueIndex+1))
+
+	// Kembalikan query INSERT dengan fields dan values
+	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING id", m.TableName(), strings.Join(fields, ", "), strings.Join(values, ", "))
+}
+
+func (m *Menu) QueryGetAll() string {
+	fields := []string{"tb_menu.id", "tb_menu.name", "tb_menu.code", "tb_menu.status", "tb_menu.url_path", "tb_menu.icon", "tb_menu.created_at", "tb_menu.updated_at"}
+	return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_menu.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+}
+
+func (m *Menu) QueryGetWithPagination(limit, offset int) string {
+	fields := []string{"tb_menu.id", "tb_menu.name", "tb_menu.code", "tb_menu.status", "tb_menu.url_path", "tb_menu.icon", "tb_menu.created_at", "tb_menu.updated_at"}
+	query := fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_menu.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", limit)
+		if offset > 0 {
+			query += fmt.Sprintf(" OFFSET %d", offset)
+		}
+	}
+	return query
+}
+
+func (m *Menu) QueryGetByID() string {
+	fields := []string{"tb_menu.id", "tb_menu.name", "tb_menu.code", "tb_menu.status", "tb_menu.url_path", "tb_menu.icon", "tb_menu.created_at", "tb_menu.updated_at"}
+	return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_menu.deleted_at IS NULL AND tb_menu.id = $1", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+}
+
+func (m *Menu) QueryUpdate() string {
+	setFields := []string{}
+	valueIndex := 1
+	setFields = append(setFields, fmt.Sprintf("%s = $%d", "name", valueIndex))
+	valueIndex++
+	setFields = append(setFields, fmt.Sprintf("%s = $%d", "code", valueIndex))
+	valueIndex++
+	setFields = append(setFields, fmt.Sprintf("%s = $%d", "status", valueIndex))
+	valueIndex++
+	setFields = append(setFields, fmt.Sprintf("%s = $%d", "url_path", valueIndex))
+	valueIndex++
+	setFields = append(setFields, fmt.Sprintf("%s = $%d", "icon", valueIndex))
+	valueIndex++
+
+	setFields = append(setFields, "updated_at = $"+fmt.Sprintf("%d", valueIndex))
+
+	return fmt.Sprintf("UPDATE %s SET %s WHERE id = $%d RETURNING id", m.TableName(), strings.Join(setFields, ", "), valueIndex+1)
+}
+
+func (m *Menu) QueryDelete() string {
+	return fmt.Sprintf("DELETE FROM %s WHERE id = $1 AND tb_menu.deleted_at IS NULL", m.TableName())
+}
+
+func (m *Menu) QueryCount() string {
+	return fmt.Sprintf("SELECT COUNT(*) FROM %s %s WHERE tb_menu.deleted_at IS NULL", m.TableName(), m.JoinClause())
+}

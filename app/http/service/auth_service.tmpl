@@ -1,0 +1,68 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type AuthService struct {
+	repo interfaces.UserRepository
+	jwt  middleware.JwtCredential
+}
+
+func NewAuthService(repo interfaces.UserRepository, jwt middleware.JwtCredential) interfaces.AuthService {
+	return &AuthService{
+		repo: repo,
+		jwt:  jwt,
+	}
+}
+
+func (s *AuthService) LoginAdmin(ctx context.Context, userCred *models.UserAdminAuthentication, tx pgx.Tx) *command.Response {
+
+	user, err := s.repo.FindByKeyAndValue(ctx, "email", userCred.Email)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	if valid := utils.ValidatePassword(user.Password, userCred.Password); !valid {
+		return command.NewErrorResponse(http.StatusBadGateway, "invalid password")
+	}
+
+	jwtPayload := map[string]interface{}{
+		"id":       user.ID,
+		"role_ids": user.RoleIDs,
+	}
+
+	AcToken, err := s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretAtKey, s.jwt.ExpiredAcToken*time.Minute)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	refreshToken, err := s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretRtKey, s.jwt.ExpiredRtToken*time.Minute)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	user.LastLoginAt = int(time.Now().Unix())
+	userID, err := s.repo.Update(ctx, &user)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	fmt.Println("userID: ", userID)
+
+	resp := models.UserCredential{
+		AccessToken:  AcToken,
+		RefreshToken: refreshToken,
+	}
+
+	return command.NewSuccessResponse(http.StatusOK, resp)
+}

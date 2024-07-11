@@ -1,0 +1,77 @@
+package service
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type RoleService struct {
+	repo     interfaces.RoleRepository
+	menuRepo interfaces.MenuRepository
+}
+
+func NewRoleService(repo interfaces.RoleRepository, menuRepo interfaces.MenuRepository) interfaces.RoleService {
+	return &RoleService{
+		repo:     repo,
+		menuRepo: menuRepo,
+	}
+}
+
+func (s *RoleService) Create(ctx context.Context, role *models.Role, tx pgx.Tx) *command.Response {
+	res, err := s.repo.Create(ctx, role, tx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusCreated, res)
+}
+
+func (s *RoleService) FindAll(ctx context.Context) *command.Response {
+	res, err := s.repo.FindAll(ctx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *RoleService) GetByID(cxt context.Context, id uint) *command.Response {
+	res, err := s.repo.FindByID(cxt, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	menuRes, err := s.menuRepo.FindRoleMenu(cxt, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	res.Menus = menuRes
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *RoleService) Update(ctx context.Context, role *models.Role, tx pgx.Tx) *command.Response {
+
+	roleOld, err := s.repo.FindByID(ctx, role.ID)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusNotFound, err.Error())
+	}
+
+	role.Code = roleOld.Code
+	res, err := s.repo.Update(ctx, role)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+
+}
+
+func (s *RoleService) Delete(ctx context.Context, id uint) *command.Response {
+	res, err := s.repo.Delete(ctx, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}

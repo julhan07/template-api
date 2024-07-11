@@ -1,0 +1,102 @@
+package models
+
+import (
+	"fmt"
+	"strings"
+)
+
+type {{.Name}} struct {
+	ID        uint   `json:"id"`
+    {{- range .ModelField}}
+	{{.Name}} {{.Type}} `json:"{{.JsonTag}}" validate:"{{.ValidateForm}}"`
+    {{- end}}
+	CreatedAt int `json:"created_at"`
+	UpdatedAt int `json:"updated_at"`
+	DeletedAt int `json:"deleted_at,omitempty"`
+}
+
+func (m *{{.Name}}) TableName() string {
+	return "tb_{{.LowerName}}"
+}
+
+func (m *{{.Name}}) JoinClause() string {
+	joins := []string{}
+	{{- range .ModelField}}
+	{{- if .ForeignKey}}
+	joins = append(joins, fmt.Sprintf("LEFT JOIN %s ON tb_{{$.LowerName}}.%s = %s.%s", "{{.ForeignKey.Table}}", "{{.JsonTag}}", "{{.ForeignKey.Table}}", "{{.ForeignKey.Column}}"))
+	{{- end}}
+	{{- end}}
+	return strings.Join(joins, " ")
+}
+
+func (m *{{.Name}}) QueryInsert() string {
+    fields := []string{}
+    values := []string{}
+    valueIndex := 1
+
+    {{- range .ModelField }}
+        {{- if not .AliasName }} 
+            fields = append(fields, "{{ .JsonTag }}")
+            values = append(values, fmt.Sprintf("$%d", valueIndex))
+            valueIndex++
+        {{- end }}
+    {{- end }}
+
+    // Tambahkan created_at dan updated_at ke fields
+    fields = append(fields, "created_at", "updated_at")
+
+    // Tambahkan placeholder untuk created_at dan updated_at ke values
+    values = append(values, fmt.Sprintf("$%d", valueIndex), fmt.Sprintf("$%d", valueIndex+1))
+
+    // Kembalikan query INSERT dengan fields dan values
+    return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) RETURNING id", m.TableName(), strings.Join(fields, ", "), strings.Join(values, ", "))
+}
+
+func (m *{{.Name}}) QueryGetAll() string {
+    fields := []string{"tb_{{.LowerName}}.id", {{- range .ModelField}} {{- if not .AliasName}}"tb_{{$.LowerName}}.{{.JsonTag}}", {{- else }} `{{.AliasName}} as "{{.JsonTag}}"`, {{- end }} {{- end }} "tb_{{.LowerName}}.created_at", "tb_{{.LowerName}}.updated_at"}
+    return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+}
+
+func (m *{{.Name}}) QueryGetWithPagination(limit, offset int) string {
+    fields := []string{"tb_{{.LowerName}}.id", {{- range .ModelField}} {{- if not .AliasName}}"tb_{{$.LowerName}}.{{.JsonTag}}", {{- else }} `{{.AliasName}} as "{{.JsonTag}}"`, {{- end }} {{- end }} "tb_{{.LowerName}}.created_at", "tb_{{.LowerName}}.updated_at"}
+    query := fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+
+    if limit > 0 {
+        query += fmt.Sprintf(" LIMIT %d", limit)
+        if offset > 0 {
+            query += fmt.Sprintf(" OFFSET %d", offset)
+        }
+    }
+    return query
+}
+
+func (m *{{.Name}}) QueryGetByID() string {
+    fields := []string{"tb_{{.LowerName}}.id", {{- range .ModelField}} {{- if not .AliasName}}"tb_{{$.LowerName}}.{{.JsonTag}}", {{- else }} `{{.AliasName}} as "{{.JsonTag}}"`, {{- end }} {{- end }} "tb_{{.LowerName}}.created_at", "tb_{{.LowerName}}.updated_at"}
+    return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL AND tb_{{.LowerName}}.id = $1", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
+}
+
+func (m *{{.Name}}) QueryUpdate() string {
+	setFields := []string{}
+	valueIndex := 1
+
+	{{- range .ModelField }}
+		{{- if not .AliasName }}
+			{{- if ne .JsonTag "password" }}
+    setFields = append(setFields, fmt.Sprintf("%s = $%d", "{{ .JsonTag }}", valueIndex))
+    valueIndex++ 
+			{{- end }}
+		{{- end }}
+	{{- end }}
+
+	setFields = append(setFields, "updated_at = $"+fmt.Sprintf("%d", valueIndex))
+
+	return fmt.Sprintf("UPDATE %s SET %s WHERE id = $%d RETURNING id", m.TableName(), strings.Join(setFields, ", "), valueIndex+1)
+}
+
+func (m *{{.Name}}) QueryDelete() string {
+	return fmt.Sprintf("DELETE FROM %s WHERE id = $1 AND tb_{{.LowerName}}.deleted_at IS NULL", m.TableName())
+}
+
+func (m *{{.Name}}) QueryCount() string {
+    return fmt.Sprintf("SELECT COUNT(*) FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", m.TableName(), m.JoinClause())
+}

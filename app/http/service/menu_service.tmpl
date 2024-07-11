@@ -1,0 +1,70 @@
+package service
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type MenuService struct {
+	repo interfaces.MenuRepository
+}
+
+func NewMenuService(repo interfaces.MenuRepository) interfaces.MenuService {
+	return &MenuService{
+		repo: repo,
+	}
+}
+
+func (s *MenuService) Create(ctx context.Context, menu *models.Menu, tx pgx.Tx) *command.Response {
+	res, err := s.repo.Create(ctx, menu, tx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusCreated, res)
+}
+
+func (s *MenuService) FindAll(ctx context.Context) *command.Response {
+	res, err := s.repo.FindAll(ctx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *MenuService) GetByID(cxt context.Context, id uint) *command.Response {
+	res, err := s.repo.FindByID(cxt, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *MenuService) GetMenuByRoleID(cxt context.Context, id uint) *command.Response {
+	res, err := s.repo.FindRoleMenu(cxt, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *MenuService) Update(ctx context.Context, menu *models.Menu, tx pgx.Tx) *command.Response {
+	res, err := s.repo.Update(ctx, menu)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+
+}
+
+func (s *MenuService) Delete(ctx context.Context, id uint) *command.Response {
+	res, err := s.repo.Delete(ctx, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}

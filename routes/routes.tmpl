@@ -1,0 +1,43 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/pkg"
+)
+
+type rest{{.Name}}Router struct {
+	router  fiber.Router
+	handler interfaces.{{.Name}}Handler
+	jwt     middleware.JwtCredential
+}
+
+func {{.LowerName}}Router(pgx *pkg.Pgx) interfaces.{{.Name}}Handler {
+	{{.LowerName}}Repo := repository.New{{.Name}}Repository(*pgx, &models.{{.Name}}{})
+	{{.LowerName}}Service := service.New{{.Name}}Service({{.LowerName}}Repo)
+	validateForm := validator.New()
+	return handlers.New{{.Name}}Handler({{.LowerName}}Service, validateForm)
+}
+
+func New{{.Name}}Router(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *rest{{.Name}}Router {
+    handler := {{.LowerName}}Router(pgx)
+	res := rest{{.Name}}Router{router, handler, jwt}
+	res.Setup()
+	return &res
+}
+
+func (h *rest{{.Name}}Router) Setup() {
+	apiAdmin := h.router.Group("/api-admin")
+	apiAdmin.Use(h.jwt.JwtAdminVerify)
+	apiAdmin.Get("/{{.LowerName}}", h.handler.FindAll)
+	apiAdmin.Get("/{{.LowerName}}/id/:id", h.handler.GetByID)
+	apiAdmin.Post("/{{.LowerName}}", h.handler.Create)
+	apiAdmin.Put("/{{.LowerName}}/id/:id", h.handler.Update)
+	apiAdmin.Delete("/{{.LowerName}}/id/:id", h.handler.Delete)
+}

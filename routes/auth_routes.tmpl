@@ -1,0 +1,37 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/config"
+	"{{.PackagePath}}/pkg"
+)
+
+type restAuthRouter struct {
+	router  fiber.Router
+	handler interfaces.AuthHandler
+}
+
+func authRouter(pgx *pkg.Pgx, conf config.Config) interfaces.AuthHandler {
+	userRepo := repository.NewUserRepository(*pgx, &models.User{})
+	userService := service.NewAuthService(userRepo, conf.JwtCredential)
+	validateForm := validator.New()
+	return handlers.NewAuthHandler(userService, validateForm)
+}
+
+func NewAuthRouter(router fiber.Router, pgx *pkg.Pgx, conf config.Config) *restAuthRouter {
+	handler := authRouter(pgx, conf)
+	res := restAuthRouter{router, handler}
+	res.Setup()
+	return &res
+}
+
+func (h *restAuthRouter) Setup() {
+	route := h.router.Group("/api-admin")
+	route.Post("/auth", h.handler.LoginAdmin)
+}

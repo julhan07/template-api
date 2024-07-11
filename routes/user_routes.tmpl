@@ -1,0 +1,43 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/pkg"
+)
+
+type restUserRouter struct {
+	router  fiber.Router
+	handler interfaces.UserHandler
+	jwt     middleware.JwtCredential
+}
+
+func userRouter(pgx *pkg.Pgx) interfaces.UserHandler {
+	userRepo := repository.NewUserRepository(*pgx, &models.User{})
+	userService := service.NewUserService(userRepo)
+	validateForm := validator.New()
+	return handlers.NewUserHandler(userService, validateForm)
+}
+
+func NewUserRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restUserRouter {
+	handler := userRouter(pgx)
+	res := restUserRouter{router, handler, jwt}
+	res.Setup()
+	return &res
+}
+
+func (h *restUserRouter) Setup() {
+	apiAdmin := h.router.Group("/api-admin")
+	apiAdmin.Use(h.jwt.JwtAdminVerify)
+	apiAdmin.Get("/user", h.handler.FindAll)
+	apiAdmin.Get("/user/id/:id", h.handler.GetByID)
+	apiAdmin.Post("/user", h.handler.Create)
+	apiAdmin.Put("/user/id/:id", h.handler.Update)
+	apiAdmin.Delete("/user/id/:id", h.handler.Delete)
+}

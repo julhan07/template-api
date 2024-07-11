@@ -1,0 +1,10 @@
+package interfaces
+
+import (
+	"github.com/gofiber/fiber/v2"
+)
+
+type ProfileHandler interface {
+	FindMe(c *fiber.Ctx) error
+	UpdateMe(c *fiber.Ctx) error
+}

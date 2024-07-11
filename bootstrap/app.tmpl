@@ -1,0 +1,52 @@
+package bootstrap
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/config"
+	"{{.PackagePath}}/pkg"
+	"{{.PackagePath}}/routes"
+)
+
+func StartServer() {
+	app := fiber.New()
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:  "*", // specify allowed origins
+		AllowMethods:  "GET,POST,PUT,DELETE",
+		AllowHeaders:  "Content-Type, Authorization",
+		ExposeHeaders: "Content-Length",
+		MaxAge:        3600,
+	}))
+
+	conf, err := config.InitConfig()
+	if err != nil {
+		log.Fatal("Error initializing config:", err)
+	}
+
+	pgx, err := pkg.NewDBConnection(&conf.Pgx)
+	if err != nil {
+		log.Fatal("Error connecting to database:", err)
+	}
+
+	// generate automatic role menu data
+	ex, err := pgx.Db.Exec(context.Background(), models.StoreRoleMenuSqlCMD())
+	if err != nil {
+		log.Panic(err.Error())
+	}
+	fmt.Println("sql result", ex.RowsAffected())
+
+	defer pgx.Db.Close()
+	// app.Use(intiConf.StaticPath)
+
+	routes.RunRoutes(app, pgx, conf)
+	fmt.Printf("Starting server at http://%v:%v", conf.AppHost, conf.AppPort)
+	if err := app.Listen(fmt.Sprintf("%v:%v", conf.AppHost, conf.AppPort)); err != nil {
+		fmt.Println("Error starting server:", err)
+	}
+}

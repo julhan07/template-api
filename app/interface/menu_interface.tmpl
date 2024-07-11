@@ -1,0 +1,37 @@
+package interfaces
+
+import (
+	"context"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type MenuRepository interface {
+	Create(ctx context.Context, menu *models.Menu, tx pgx.Tx) (res int, err error)
+	FindAll(ctx context.Context) (res []models.Menu, err error)
+	FindByID(ctx context.Context, id uint) (res models.Menu, err error)
+	FindRoleMenu(ctx context.Context, id uint) (res []models.MenuView, err error)
+	FindByKeyAndValue(ctx context.Context, key, value interface{}) (res models.Menu, err error)
+	Update(ctx context.Context, menu *models.Menu) (res int, err error)
+	Delete(ctx context.Context, id uint) (res int, err error)
+}
+
+type MenuService interface {
+	Create(ctx context.Context, menu *models.Menu, tx pgx.Tx) *command.Response
+	FindAll(ctx context.Context) *command.Response
+	GetByID(cxt context.Context, id uint) *command.Response
+	GetMenuByRoleID(cxt context.Context, id uint) *command.Response
+	Update(ctx context.Context, menu *models.Menu, tx pgx.Tx) *command.Response
+	Delete(ctx context.Context, id uint) *command.Response
+}
+
+type MenuHandler interface {
+	Create(c *fiber.Ctx) error
+	FindAll(c *fiber.Ctx) error
+	GetByID(c *fiber.Ctx) error
+	Update(c *fiber.Ctx) error
+	Delete(c *fiber.Ctx) error
+}

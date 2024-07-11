@@ -1,0 +1,95 @@
+package repository
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/pkg"
+	"{{.PackagePath}}/utils"
+)
+
+type RoleRepository struct {
+	pgx   pkg.Pgx
+	model *models.Role
+}
+
+func NewRoleRepository(pgx pkg.Pgx, model *models.Role) interfaces.RoleRepository {
+	return &RoleRepository{pgx, model}
+}
+
+func (repo *RoleRepository) scan(row pgx.Row) (res models.Role, err error) {
+	if err = row.Scan(&res.ID, &res.Name, &res.Code, &res.Status, &res.CreatedAt, &res.UpdatedAt); err != nil {
+		return res, err
+	}
+	return res, err
+}
+
+func (repo *RoleRepository) Create(ctx context.Context, role *models.Role, tx pgx.Tx) (res int, err error) {
+	err = repo.pgx.QueryRow(ctx, tx, repo.model.QueryInsert(), role.Name, role.Code, role.Status, time.Now().Unix(), time.Now().Unix()).Scan(&res)
+	if err != nil {
+		msg, ok := utils.GetColumnNameFromPgError(err)
+		if ok {
+			return res, fmt.Errorf("%v", msg)
+		}
+		return res, err
+	}
+	return
+}
+
+func (repo *RoleRepository) FindAll(ctx context.Context) (res []models.Role, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetAll())
+	if err != nil {
+		return res, err
+	}
+	for rows.Next() {
+		role, err := repo.scan(rows)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, role)
+	}
+	return
+}
+
+func (repo *RoleRepository) FindWithPagination(ctx context.Context) (res []models.Role, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetAll())
+	if err != nil {
+		return res, err
+	}
+	for rows.Next() {
+		role, err := repo.scan(rows)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, role)
+	}
+	return
+}
+
+func (repo *RoleRepository) FindByID(ctx context.Context, id uint) (res models.Role, err error) {
+	row := repo.pgx.QueryRow(ctx, nil, repo.model.QueryGetByID(), id)
+	return repo.scan(row)
+}
+
+func (repo *RoleRepository) FindByKeyAndValue(ctx context.Context, key, value interface{}) (res models.Role, err error) {
+	row := repo.pgx.QueryRow(ctx, nil, repo.model.QueryGetAll()+fmt.Sprintf(" AND %v='%v'", key, value))
+	return repo.scan(row)
+}
+
+func (repo *RoleRepository) Update(ctx context.Context, role *models.Role) (res int, err error) {
+	if err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryUpdate(), role.Name, role.Code, role.Status, time.Now().Unix(), role.ID).Scan(&res); err != nil {
+		return 0, err
+	}
+	return
+}
+
+func (repo *RoleRepository) Delete(ctx context.Context, id uint) (res int, err error) {
+	if err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryDelete(), id).Scan(&res); err != nil {
+		return 0, err
+	}
+	return
+}

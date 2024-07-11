@@ -1,0 +1,46 @@
+package handlers
+
+import (
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type AuthHandler struct {
+	service  interfaces.AuthService
+	validate *validator.Validate
+}
+
+func NewAuthHandler(service interfaces.AuthService, validate *validator.Validate) interfaces.AuthHandler {
+	return &AuthHandler{
+		service:  service,
+		validate: validate,
+	}
+}
+
+func (h *AuthHandler) LoginAdmin(c *fiber.Ctx) error {
+	var auth models.UserAdminAuthentication
+	if err := c.BodyParser(&auth); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the auth struct
+	if err := h.validate.Struct(&auth); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	resp := h.service.LoginAdmin(c.Context(), &auth, nil)
+	return c.Status(resp.Status).JSON(resp)
+}

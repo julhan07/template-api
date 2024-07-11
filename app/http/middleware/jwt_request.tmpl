@@ -1,0 +1,30 @@
+package middleware
+
+import (
+	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+)
+
+func (cred JwtCredential) GenerateJWT(mapClaims map[string]interface{}, secretKey string, duration time.Duration) (string, error) {
+	// Create a new map for the claims and add the expiration time
+	claims := jwt.MapClaims{
+		"exp": time.Now().Add(duration).Unix(),
+	}
+
+	// Merge the provided mapClaims into the claims map
+	for key, value := range mapClaims {
+		claims[key] = value
+	}
+
+	// Create the token with the combined claims
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	// Sign the token with the secret key
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
+}

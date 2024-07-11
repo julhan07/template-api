@@ -1,0 +1,43 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/pkg"
+)
+
+type restMenuRouter struct {
+	router  fiber.Router
+	handler interfaces.MenuHandler
+	jwt     middleware.JwtCredential
+}
+
+func menuRouter(pgx *pkg.Pgx) interfaces.MenuHandler {
+	menuRepo := repository.NewMenuRepository(*pgx, &models.Menu{})
+	menuService := service.NewMenuService(menuRepo)
+	validateForm := validator.New()
+	return handlers.NewMenuHandler(menuService, validateForm)
+}
+
+func NewMenuRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restMenuRouter {
+	handler := menuRouter(pgx)
+	res := restMenuRouter{router, handler, jwt}
+	res.Setup()
+	return &res
+}
+
+func (h *restMenuRouter) Setup() {
+	apiAdmin := h.router.Group("/api-admin")
+	apiAdmin.Use(h.jwt.JwtAdminVerify)
+	apiAdmin.Get("/menu", h.handler.FindAll)
+	apiAdmin.Get("/menu/id/:id", h.handler.GetByID)
+	apiAdmin.Post("/menu", h.handler.Create)
+	apiAdmin.Put("/menu/id/:id", h.handler.Update)
+	apiAdmin.Delete("/menu/id/:id", h.handler.Delete)
+}

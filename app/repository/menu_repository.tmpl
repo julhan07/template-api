@@ -1,0 +1,102 @@
+package repository
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/pkg"
+	"{{.PackagePath}}/utils"
+)
+
+type MenuRepository struct {
+	pgx   pkg.Pgx
+	model *models.Menu
+}
+
+func NewMenuRepository(pgx pkg.Pgx, model *models.Menu) interfaces.MenuRepository {
+	return &MenuRepository{pgx, model}
+}
+
+func (repo *MenuRepository) scan(row pgx.Row) (res models.Menu, err error) {
+	if err = row.Scan(&res.ID, &res.Name, &res.Code, &res.Status, &res.UrlPath, &res.Icon, &res.CreatedAt, &res.UpdatedAt); err != nil {
+		return res, err
+	}
+	return res, err
+}
+
+func (repo *MenuRepository) scanMenuview(row pgx.Row) (res models.MenuView, err error) {
+	if err = row.Scan(&res.ID, &res.Name, &res.Code, &res.UrlPath, &res.Icon, &res.Actions); err != nil {
+		return res, err
+	}
+	return res, err
+}
+
+func (repo *MenuRepository) Create(ctx context.Context, menu *models.Menu, tx pgx.Tx) (res int, err error) {
+	err = repo.pgx.QueryRow(ctx, tx, repo.model.QueryInsert(), menu.Name, menu.Code, menu.Status, menu.UrlPath, menu.Icon, time.Now().Unix(), time.Now().Unix()).Scan(&res)
+	if err != nil {
+		msg, ok := utils.GetColumnNameFromPgError(err)
+		if ok {
+			return res, fmt.Errorf("%v", msg)
+		}
+		return res, err
+	}
+	return
+}
+
+func (repo *MenuRepository) FindAll(ctx context.Context) (res []models.Menu, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetAll())
+	if err != nil {
+		return res, err
+	}
+	for rows.Next() {
+		menu, err := repo.scan(rows)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, menu)
+	}
+	return
+}
+
+func (repo *MenuRepository) FindByID(ctx context.Context, id uint) (res models.Menu, err error) {
+	row := repo.pgx.QueryRow(ctx, nil, repo.model.QueryGetByID(), id)
+	return repo.scan(row)
+}
+
+func (repo *MenuRepository) FindRoleMenu(ctx context.Context, id uint) (res []models.MenuView, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, models.GetRoleMenuSqlCMD(int(id)))
+	if err != nil {
+		return res, err
+	}
+	for rows.Next() {
+		menu, err := repo.scanMenuview(rows)
+		if err != nil {
+			return res, err
+		}
+		res = append(res, menu)
+	}
+	return
+}
+
+func (repo *MenuRepository) FindByKeyAndValue(ctx context.Context, key, value interface{}) (res models.Menu, err error) {
+	row := repo.pgx.QueryRow(ctx, nil, repo.model.QueryGetAll()+fmt.Sprintf(" AND %v='%v'", key, value))
+	return repo.scan(row)
+}
+
+func (repo *MenuRepository) Update(ctx context.Context, menu *models.Menu) (res int, err error) {
+	if err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryUpdate(), menu.Name, menu.Code, menu.Status, menu.UrlPath, menu.Icon, time.Now().Unix(), menu.ID).Scan(&res); err != nil {
+		return 0, err
+	}
+	return
+}
+
+func (repo *MenuRepository) Delete(ctx context.Context, id uint) (res int, err error) {
+	if err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryDelete(), id).Scan(&res); err != nil {
+		return 0, err
+	}
+	return
+}

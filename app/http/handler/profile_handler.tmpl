@@ -1,0 +1,58 @@
+package handlers
+
+import (
+	"strings"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type ProfileHandler struct {
+	service  interfaces.UserService
+	validate *validator.Validate
+}
+
+func NewProfileHandler(service interfaces.UserService, validate *validator.Validate) interfaces.ProfileHandler {
+	return &ProfileHandler{
+		service:  service,
+		validate: validate,
+	}
+}
+
+func (h *ProfileHandler) FindMe(c *fiber.Ctx) error {
+	me := c.Locals("metadata").(models.MetaDataUser)
+	resp := h.service.GetByID(c.Context(), uint(me.ID))
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *ProfileHandler) UpdateMe(c *fiber.Ctx) error {
+	me := c.Locals("metadata").(models.MetaDataUser)
+	respByID := h.service.GetByID(c.Context(), uint(me.ID))
+	if respByID.Status != fiber.StatusOK {
+		return c.Status(respByID.Status).JSON(respByID.Message)
+	}
+
+	user := respByID.Data.(models.User)
+	if err := c.BodyParser(&user); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the user struct
+	if err := h.validate.Struct(&user); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	resp := h.service.Update(c.Context(), &user, nil)
+	return c.Status(resp.Status).JSON(resp)
+}

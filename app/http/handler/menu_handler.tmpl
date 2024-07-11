@@ -1,0 +1,105 @@
+package handlers
+
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/go-playground/validator/v10"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type MenuHandler struct {
+	service interfaces.MenuService
+	validate *validator.Validate
+}
+
+func NewMenuHandler(service interfaces.MenuService, validate *validator.Validate) interfaces.MenuHandler {
+	return &MenuHandler{
+		service: service,
+		validate: validate,
+	}
+}
+
+func (h *MenuHandler) Create(c *fiber.Ctx) error {
+	var menu models.Menu
+	if err := c.BodyParser(&menu); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the menu struct
+	if err := h.validate.Struct(&menu); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	resp := h.service.Create(c.Context(), &menu, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *MenuHandler) FindAll(c *fiber.Ctx) error {
+	resp := h.service.FindAll(c.Context())
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *MenuHandler) GetByID(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	resp := h.service.GetByID(c.Context(), uint(id))
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *MenuHandler) Update(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	var menu models.Menu
+	if err := c.BodyParser(&menu); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the menu struct
+	if err := h.validate.Struct(&menu); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	menu.ID = uint(id)
+	resp := h.service.Update(c.Context(), &menu, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *MenuHandler) Delete(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	resp := h.service.Delete(c.Context(), uint(id))
+	return c.Status(resp.Status).JSON(resp)
+}

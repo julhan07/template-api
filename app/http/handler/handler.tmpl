@@ -1,0 +1,105 @@
+package handlers
+
+import (
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/go-playground/validator/v10"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type {{.Name}}Handler struct {
+	service interfaces.{{.Name}}Service
+	validate *validator.Validate
+}
+
+func New{{.Name}}Handler(service interfaces.{{.Name}}Service, validate *validator.Validate) interfaces.{{.Name}}Handler {
+	return &{{.Name}}Handler{
+		service: service,
+		validate: validate,
+	}
+}
+
+func (h *{{.Name}}Handler) Create(c *fiber.Ctx) error {
+	var {{.LowerName}} models.{{.Name}}
+	if err := c.BodyParser(&{{.LowerName}}); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the {{.LowerName}} struct
+	if err := h.validate.Struct(&{{.LowerName}}); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	resp := h.service.Create(c.Context(), &{{.LowerName}}, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *{{.Name}}Handler) FindAll(c *fiber.Ctx) error {
+	resp := h.service.FindAll(c.Context())
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *{{.Name}}Handler) GetByID(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	resp := h.service.GetByID(c.Context(), uint(id))
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *{{.Name}}Handler) Update(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	var {{.LowerName}} models.{{.Name}}
+	if err := c.BodyParser(&{{.LowerName}}); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the {{.LowerName}} struct
+	if err := h.validate.Struct(&{{.LowerName}}); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	{{.LowerName}}.ID = uint(id)
+	resp := h.service.Update(c.Context(), &{{.LowerName}}, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *{{.Name}}Handler) Delete(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+	resp := h.service.Delete(c.Context(), uint(id))
+	return c.Status(resp.Status).JSON(resp)
+}

@@ -1,0 +1,54 @@
+package middleware
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v4"
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type JwtCredential struct {
+	SecretAtKey    string
+	SecretRtKey    string
+	ExpiredAcToken time.Duration
+	ExpiredRtToken time.Duration
+}
+
+func (cred JwtCredential) JwtAdminVerify(c *fiber.Ctx) error {
+	return cred.jwtVerify(c, cred.SecretAtKey)
+}
+
+func (cred JwtCredential) JwtUserVerify(c *fiber.Ctx) error {
+	return cred.jwtVerify(c, cred.SecretAtKey)
+}
+
+func (cred JwtCredential) JwtRtVerify(c *fiber.Ctx) error {
+	return cred.jwtVerify(c, cred.SecretRtKey)
+}
+
+func (cred JwtCredential) jwtVerify(c *fiber.Ctx, secretKey string) error {
+	tokenHeader := c.Get("Authorization")
+	if tokenHeader == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, "Missing auth token"))
+	}
+
+	tokenStr := tokenHeader[len("Bearer "):]
+	token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fiber.ErrUnauthorized
+		}
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, err.Error()))
+	}
+
+	if !token.Valid {
+		return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, "Token is not valid"))
+	}
+
+	return c.Next()
+}

@@ -1,0 +1,16 @@
+package models
+
+type UserAdminAuthentication struct {
+	Email    string `json:"email" validate:"required"`
+	Password string `json:"password" validate:"required"`
+}
+
+type UserCredential struct {
+	AccessToken  string `json:"access_token" validate:"required"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type MetaDataUser struct {
+	ID     int `json:"id"`
+	RoleID int `json:"role_id"`
+}

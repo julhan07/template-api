@@ -1,0 +1,71 @@
+CREATE TABLE public.tb_role (
+	id serial4 NOT NULL,
+	"name" text NOT NULL,
+	code text NOT NULL,
+	status bool NULL,
+	created_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	updated_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	deleted_at int4 NULL,
+	CONSTRAINT tb_role_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.tb_user (
+	id serial4 NOT NULL,
+	full_name text NOT NULL,
+	email text NULL,
+	"password" text NULL,
+	status bool NULL,
+	email_verification bool NULL,
+	created_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	updated_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	deleted_at int4 NULL,
+	last_login_at int4 DEFAULT 0 NULL,
+	role_ids jsonb NULL,
+	phone varchar DEFAULT ''::character varying NULL,
+	phone_verification bool DEFAULT false NULL,
+	CONSTRAINT tb_user_email_key UNIQUE (email),
+	CONSTRAINT tb_user_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.tb_menu (
+	id serial4 NOT NULL,
+	"name" text NOT NULL,
+	code text NOT NULL,
+	status bool NULL,
+	url_path text NOT NULL,
+	icon text NULL,
+	created_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	updated_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	deleted_at int4 NULL,
+	ref_id int4 NULL,
+	"order" int4 DEFAULT 1 NULL,
+	CONSTRAINT tb_menu_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.tb_menu_action (
+	id serial4 NOT NULL,
+	"name" text NOT NULL,
+	code text NULL,
+	created_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	updated_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	deleted_at int4 NULL,
+	"order" int4 DEFAULT 1 NULL,
+	CONSTRAINT tb_menu_action_code_key UNIQUE (code),
+	CONSTRAINT tb_menu_action_pkey PRIMARY KEY (id)
+);
+
+CREATE TABLE public.tb_role_menu (
+	id serial4 NOT NULL,
+	role_id int4 NOT NULL,
+	menu_id int4 NOT NULL,
+	actions jsonb NOT NULL,
+	created_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	updated_at int4 DEFAULT EXTRACT(epoch FROM CURRENT_TIMESTAMP) NOT NULL,
+	deleted_at int4 NULL,
+	CONSTRAINT tb_role_menu_pkey PRIMARY KEY (id)
+);
+
+
+-- public.tb_role_menu foreign keys
+ALTER TABLE public.tb_role_menu ADD CONSTRAINT tb_role_menu_menu_id_fkey FOREIGN KEY (menu_id) REFERENCES public.tb_menu(id);
+ALTER TABLE public.tb_role_menu ADD CONSTRAINT tb_role_menu_role_id_fkey FOREIGN KEY (role_id) REFERENCES public.tb_role(id);

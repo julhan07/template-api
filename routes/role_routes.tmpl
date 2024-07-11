@@ -1,0 +1,44 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/pkg"
+)
+
+type restRoleRouter struct {
+	router  fiber.Router
+	handler interfaces.RoleHandler
+	jwt     middleware.JwtCredential
+}
+
+func roleRouter(pgx *pkg.Pgx) interfaces.RoleHandler {
+	roleRepo := repository.NewRoleRepository(*pgx, &models.Role{})
+	menuRepo := repository.NewMenuRepository(*pgx, &models.Menu{})
+	roleService := service.NewRoleService(roleRepo, menuRepo)
+	validateForm := validator.New()
+	return handlers.NewRoleHandler(roleService, validateForm)
+}
+
+func NewRoleRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restRoleRouter {
+	handler := roleRouter(pgx)
+	res := restRoleRouter{router, handler, jwt}
+	res.Setup()
+	return &res
+}
+
+func (h *restRoleRouter) Setup() {
+	apiAdmin := h.router.Group("/api-admin")
+	apiAdmin.Use(h.jwt.JwtAdminVerify)
+	apiAdmin.Get("/role", h.handler.FindAll)
+	apiAdmin.Get("/role/id/:id", h.handler.GetByID)
+	apiAdmin.Post("/role", h.handler.Create)
+	apiAdmin.Put("/role/id/:id", h.handler.Update)
+	apiAdmin.Delete("/role/id/:id", h.handler.Delete)
+}

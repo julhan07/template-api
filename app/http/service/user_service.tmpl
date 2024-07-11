@@ -1,0 +1,83 @@
+package service
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/jackc/pgx/v4"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/utils"
+
+	command "github.com/julhan07/go-kampasi-command"
+)
+
+type UserService struct {
+	repo interfaces.UserRepository
+}
+
+func NewUserService(repo interfaces.UserRepository) interfaces.UserService {
+	return &UserService{
+		repo: repo,
+	}
+}
+
+func (s *UserService) Create(ctx context.Context, user *models.User, tx pgx.Tx) *command.Response {
+	user.Password, _ = utils.GenerateHashPassword(user.Password)
+	res, err := s.repo.Create(ctx, user, tx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusCreated, res)
+}
+
+func (s *UserService) FindAll(ctx context.Context) *command.Response {
+	res, err := s.repo.FindAll(ctx)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *UserService) GetByID(cxt context.Context, id uint) *command.Response {
+	res, err := s.repo.FindByID(cxt, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	res.Password = ""
+	return command.NewSuccessResponse(http.StatusOK, res)
+}
+
+func (s *UserService) Update(ctx context.Context, user *models.User, tx pgx.Tx) *command.Response {
+	userOld, err := s.repo.FindByID(ctx, user.ID)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	user.Roles = userOld.Roles
+	user.Email = userOld.Email
+	user.Password = userOld.Password
+	if len(user.RoleIDs) > 0 {
+		user.RoleIDs = userOld.RoleIDs
+	}
+	res, err := s.repo.Update(ctx, user)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+
+}
+
+func (s *UserService) Delete(ctx context.Context, id uint) *command.Response {
+
+	_, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusNotFound, err.Error())
+	}
+
+	res, err := s.repo.Delete(ctx, id)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	return command.NewSuccessResponse(http.StatusOK, res)
+}

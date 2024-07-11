@@ -1,0 +1,102 @@
+package models
+
+import "fmt"
+
+type MenuView struct {
+	ID        uint             `json:"id"`
+	Name      string           `json:"name"`
+	Code      string           `json:"code"`
+	Status    bool             `json:"status" validate:""`
+	UrlPath   string           `json:"url_path"`
+	Icon      string           `json:"icon" validate:""`
+	Actions   []MenuActionView `json:"actions"`
+	CreatedAt int              `json:"created_at"`
+	UpdatedAt int              `json:"updated_at"`
+	DeletedAt int              `json:"deleted_at,omitempty"`
+}
+
+type MenuActionView struct {
+	Code   string `json:"code"`
+	Name   string `json:"name"`
+	Status bool   `json:"status" validate:""`
+}
+
+
+type RoleView struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name" validate:"required"`
+	Code string `json:"code" validate:"required"`
+}
+
+type Pagination struct {
+	Offset    int    `json:"offset" query:"offset"`
+	Limit     int    `json:"limit" query:"limit"`
+	Page      int    `json:"page" query:"page"`
+	Total     int    `json:"total"`
+	TotalPage int    `json:"total_page"`
+	Search    string `json:"search" query:"search"`
+}
+
+func StoreRoleMenuSqlCMD() string {
+	return `WITH menu_data AS (
+                SELECT id AS menu_id, name AS menu_name, code AS menu_code, url_path, icon
+                FROM public.tb_menu
+            ),
+            role_data AS (
+                SELECT id AS role_id, name AS role_name, code AS role_code
+                FROM public.tb_role
+            ),
+            action_data AS (
+                SELECT tbma.id AS action_id, tbma.name AS action_name, tbma.code AS action_code
+                FROM public.tb_menu_action tbma order by tbma.order ASC
+            ),
+            existing_role_menu AS (
+                SELECT role_id, menu_id
+                FROM public.tb_role_menu
+            )
+
+            -- Step 2: Insert Data into tb_role_menu
+
+            -- Insert only if the role_id and menu_id combination does not exist
+
+            INSERT INTO public.tb_role_menu (role_id, menu_id, actions, created_at, updated_at)
+            SELECT 
+                role_data.role_id, 
+                menu_data.menu_id, 
+                jsonb_agg(
+                    jsonb_build_object(
+                        'code', action_data.action_code,
+                        'name', action_data.action_name,
+                        'status', false
+                    )
+                ) AS actions,
+                EXTRACT(epoch FROM CURRENT_TIMESTAMP) AS created_at,
+                EXTRACT(epoch FROM CURRENT_TIMESTAMP) AS updated_at
+            FROM 
+                role_data
+                CROSS JOIN menu_data
+                LEFT JOIN existing_role_menu ON role_data.role_id = existing_role_menu.role_id 
+                                            AND menu_data.menu_id = existing_role_menu.menu_id
+                CROSS JOIN action_data
+            WHERE 
+                existing_role_menu.role_id IS NULL
+                AND existing_role_menu.menu_id IS NULL
+            GROUP BY 
+                role_data.role_id, 
+                menu_data.menu_id;`
+}
+
+func GetRoleMenuSqlCMD(roleID int) string {
+	return fmt.Sprintf(`SELECT 
+                        tm.id,
+                        tm."name",
+                        tm.code,
+                        tm.url_path,
+                        tm.icon,
+                        rm.actions 
+                    FROM public.tb_role_menu rm
+                    left join public.tb_role tr on tr.id = rm.role_id
+                    left join public.tb_menu tm on tm.id = rm.menu_id 
+                    where rm.role_id = %v and tr.status = true and tm.status = true
+                    order by tm."order" ASC`, roleID)
+}

@@ -1,0 +1,40 @@
+package routes
+
+import (
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/app/http/service"
+	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/app/repository"
+	"{{.PackagePath}}/pkg"
+)
+
+type restProfileRouter struct {
+	router  fiber.Router
+	handler interfaces.ProfileHandler
+	jwt     middleware.JwtCredential
+}
+
+func profileRouter(pgx *pkg.Pgx) interfaces.ProfileHandler {
+	userRepo := repository.NewUserRepository(*pgx, &models.User{})
+	userService := service.NewUserService(userRepo)
+	validateForm := validator.New()
+	return handlers.NewProfileHandler(userService, validateForm)
+}
+
+func NewProfileRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restProfileRouter {
+	handler := profileRouter(pgx)
+	res := restProfileRouter{router, handler, jwt}
+	res.Setup()
+	return &res
+}
+
+func (h *restProfileRouter) Setup() {
+	apiAdmin := h.router.Group("/api-admin/profile")
+	apiAdmin.Use(h.jwt.JwtAdminVerify)
+	apiAdmin.Put("/me", h.handler.UpdateMe)
+	apiAdmin.Get("/me", h.handler.FindMe)
+}

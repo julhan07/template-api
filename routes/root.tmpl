@@ -1,0 +1,20 @@
+package routes
+
+import (
+	"github.com/gofiber/fiber/v2"
+	"{{.PackagePath}}/config"
+	"{{.PackagePath}}/pkg"
+)
+
+func RunRoutes(app *fiber.App, pgx *pkg.Pgx, conf config.Config) {
+	// Define your routes and handlers here
+	app.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("Hello, World!")
+	})
+
+	// Register routes here
+	NewAuthRouter(app, pgx, conf)
+	NewProfileRouter(app, pgx, conf.JwtCredential)
+	NewRoleRouter(app, pgx, conf.JwtCredential)
+	NewUserRouter(app, pgx, conf.JwtCredential)
+}
