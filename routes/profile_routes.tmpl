@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/app/http/handlers"
 	"{{.PackagePath}}/app/http/middleware"
 	"{{.PackagePath}}/app/http/models"
@@ -10,6 +8,9 @@ import (
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/app/repository"
 	"{{.PackagePath}}/pkg"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 )
 
 type restProfileRouter struct {
@@ -18,15 +19,17 @@ type restProfileRouter struct {
 	jwt     middleware.JwtCredential
 }
 
-func profileRouter(pgx *pkg.Pgx) interfaces.ProfileHandler {
+func profileRouter(pgx *pkg.Pgx, redis pkg.Redis) interfaces.ProfileHandler {
 	userRepo := repository.NewUserRepository(*pgx, &models.User{})
+	menuRepo := repository.NewMenuRepository(*pgx, &models.Menu{})
 	userService := service.NewUserService(userRepo)
+	menuService := service.NewMenuService(menuRepo, redis)
 	validateForm := validator.New()
-	return handlers.NewProfileHandler(userService, validateForm)
+	return handlers.NewProfileHandler(userService, menuService, validateForm)
 }
 
-func NewProfileRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restProfileRouter {
-	handler := profileRouter(pgx)
+func NewProfileRouter(router fiber.Router, pgx *pkg.Pgx, redis pkg.Redis, jwt middleware.JwtCredential) *restProfileRouter {
+	handler := profileRouter(pgx, redis)
 	res := restProfileRouter{router, handler, jwt}
 	res.Setup()
 	return &res

@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/jackc/pgx/v4"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/jackc/pgx/v4"
 
 	command "github.com/julhan07/go-kampasi-command"
 )
@@ -29,6 +30,18 @@ func (s *UserService) Create(ctx context.Context, user *models.User, tx pgx.Tx) 
 		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
 	}
 	return command.NewSuccessResponse(http.StatusCreated, res)
+}
+
+func (s *UserService) Find(ctx context.Context, meta *models.Pagination) *command.Response {
+	res, count, err := s.repo.Find(ctx, meta)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	meta.Total = int(count)
+	metaPagination := meta.ParseMeta()
+
+	return command.NewSuccessWithMetaResponse(http.StatusOK, res, metaPagination)
 }
 
 func (s *UserService) FindAll(ctx context.Context) *command.Response {

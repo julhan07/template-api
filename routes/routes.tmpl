@@ -16,6 +16,7 @@ type rest{{.Name}}Router struct {
 	router  fiber.Router
 	handler interfaces.{{.Name}}Handler
 	jwt     middleware.JwtCredential
+	redis   pkg.Redis
 }
 
 func {{.LowerName}}Router(pgx *pkg.Pgx) interfaces.{{.Name}}Handler {
@@ -25,9 +26,9 @@ func {{.LowerName}}Router(pgx *pkg.Pgx) interfaces.{{.Name}}Handler {
 	return handlers.New{{.Name}}Handler({{.LowerName}}Service, validateForm)
 }
 
-func New{{.Name}}Router(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *rest{{.Name}}Router {
+func New{{.Name}}Router(router fiber.Router, pgx *pkg.Pgx, redis pkg.Redis, jwt middleware.JwtCredential) *rest{{.Name}}Router {
     handler := {{.LowerName}}Router(pgx)
-	res := rest{{.Name}}Router{router, handler, jwt}
+	res := rest{{.Name}}Router{router, handler, jwt, redis}
 	res.Setup()
 	return &res
 }
@@ -35,9 +36,18 @@ func New{{.Name}}Router(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCre
 func (h *rest{{.Name}}Router) Setup() {
 	apiAdmin := h.router.Group("/api-admin")
 	apiAdmin.Use(h.jwt.JwtAdminVerify)
-	apiAdmin.Get("/{{.LowerName}}", h.handler.FindAll)
-	apiAdmin.Get("/{{.LowerName}}/id/:id", h.handler.GetByID)
-	apiAdmin.Post("/{{.LowerName}}", h.handler.Create)
-	apiAdmin.Put("/{{.LowerName}}/id/:id", h.handler.Update)
-	apiAdmin.Delete("/{{.LowerName}}/id/:id", h.handler.Delete)
+	apiAdmin.Use(h.jwt.SetFeature(models.ApiFeature{{.Name}}))
+	apiAdmin.Get("/{{.LowerName}}", h.jwt.CkAccess(models.ApiRead, h.redis), h.handler.Find)
+	apiAdmin.Get("/{{.LowerName}}/all", h.jwt.CkAccess(models.ApiRead, h.redis), h.handler.FindAll)
+	apiAdmin.Get("/{{.LowerName}}/id/:id", h.jwt.CkAccess(models.ApiRead, h.redis), h.handler.GetByID)
+	apiAdmin.Post("/{{.LowerName}}", h.jwt.CkAccess(models.ApiCreate, h.redis), h.handler.Create)
+	apiAdmin.Put("/{{.LowerName}}/id/:id", h.jwt.CkAccess(models.ApiUpdate, h.redis), h.handler.Update)
+	apiAdmin.Delete("/{{.LowerName}}/id/:id", h.jwt.CkAccess(models.ApiDelete, h.redis), h.handler.Delete)
+
+	apiUser := h.router.Group("/api")
+	apiUser.Use(h.jwt.JwtUserVerify)
+	apiUser.Get("/{{.LowerName}}", h.handler.Find)
+	apiUser.Get("/{{.LowerName}}/all", h.handler.FindAll)
+	apiUser.Get("/{{.LowerName}}/id/:id", h.handler.GetByID)
+
 }

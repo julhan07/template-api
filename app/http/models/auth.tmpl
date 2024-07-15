@@ -6,11 +6,18 @@ type UserAdminAuthentication struct {
 }
 
 type UserCredential struct {
-	AccessToken  string `json:"access_token" validate:"required"`
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	AccessToken  string     `json:"access_token" validate:"required"`
+	RefreshToken string     `json:"refresh_token" validate:"required"`
+	RoleOption   []RoleView `json:"role_option,omitempty" validate:""`
+}
+
+type UserSelectRole struct {
+	UserId   int    `json:"user_id" validate:""`
+	RoleCode string `json:"role_code" validate:"required"`
 }
 
 type MetaDataUser struct {
-	ID     int `json:"id"`
-	RoleID int `json:"role_id"`
+	ID         uint   `json:"id"`
+	RoleID     uint   `json:"role_id"`
+	ActiveRole string `json:"active_role,omitempty"`
 }

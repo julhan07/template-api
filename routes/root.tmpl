@@ -1,9 +1,10 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/config"
 	"{{.PackagePath}}/pkg"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 func RunRoutes(app *fiber.App, pgx *pkg.Pgx, conf config.Config) {
@@ -13,8 +14,8 @@ func RunRoutes(app *fiber.App, pgx *pkg.Pgx, conf config.Config) {
 	})
 
 	// Register routes here
-	NewAuthRouter(app, pgx, conf)
-	NewProfileRouter(app, pgx, conf.JwtCredential)
-	NewRoleRouter(app, pgx, conf.JwtCredential)
-	NewUserRouter(app, pgx, conf.JwtCredential)
+	NewAuthRouter(app, pgx, conf.JwtCredential, conf)
+	NewProfileRouter(app, pgx, conf.Redis, conf.JwtCredential)
+	NewRoleRouter(app, pgx, conf.Redis, conf.JwtCredential)
+	NewUserRouter(app, pgx, conf.Redis, conf.JwtCredential)
 }

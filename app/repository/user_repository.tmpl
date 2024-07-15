@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/pkg"
 	"{{.PackagePath}}/utils"
+
+	"github.com/jackc/pgx/v4"
 )
 
 type UserRepository struct {
@@ -29,7 +30,7 @@ func (repo *UserRepository) scan(row pgx.Row) (res models.User, err error) {
 }
 
 func (repo *UserRepository) Create(ctx context.Context, user *models.User, tx pgx.Tx) (res int, err error) {
-	err = repo.pgx.QueryRow(ctx, tx, repo.model.QueryInsert(), user.FullName, user.Email, user.Password, user.Status, user.EmailVerification, user.RoleIDs, time.Now().Unix(), time.Now().Unix()).Scan(&res)
+	err = repo.pgx.QueryRow(ctx, tx, repo.model.QueryInsert(), user.FullName, user.Email, user.Password, user.Status, user.EmailVerification, user.RoleIDs, 0, user.Phone, user.PhoneVerification, time.Now().Unix(), time.Now().Unix()).Scan(&res)
 	if err != nil {
 		msg, ok := utils.GetColumnNameFromPgError(err)
 		if ok {
@@ -52,6 +53,27 @@ func (repo *UserRepository) FindAll(ctx context.Context) (res []models.User, err
 		}
 		user.Password = ""
 		res = append(res, user)
+	}
+	return
+}
+
+func (repo *UserRepository) Find(ctx context.Context, meta *models.Pagination) (res []models.User, count int64, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetWithPagination(meta))
+	if err != nil {
+		return res, count, err
+	}
+	for rows.Next() {
+		user, err := repo.scan(rows)
+		if err != nil {
+			return res, count, err
+		}
+		user.Password = ""
+		res = append(res, user)
+	}
+
+	err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryCount()).Scan(&count)
+	if err != nil {
+		return res, count, err
 	}
 	return
 }

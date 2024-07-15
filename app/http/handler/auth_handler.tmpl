@@ -3,11 +3,12 @@ package handlers
 import (
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
@@ -42,5 +43,31 @@ func (h *AuthHandler) LoginAdmin(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.LoginAdmin(c.Context(), &auth, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *AuthHandler) LoginSelectRole(c *fiber.Ctx) error {
+
+	metaData := c.Locals("metadata").(models.MetaDataUser)
+
+	var optionRole models.UserSelectRole
+	if err := c.BodyParser(&optionRole); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	// Validate the optionRole struct
+	if err := h.validate.Struct(&optionRole); err != nil {
+		errors := utils.ValidationErrorsToJSON(err)
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: strings.Join(errors, ", "),
+		})
+	}
+
+	optionRole.UserId = int(metaData.ID)
+	resp := h.service.LoginSelectRole(c.Context(), &optionRole, nil)
 	return c.Status(resp.Status).JSON(resp)
 }

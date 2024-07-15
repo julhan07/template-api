@@ -49,6 +49,26 @@ func (repo *{{.Name}}Repository) Create(ctx context.Context, {{.LowerName}} *mod
 	return
 }
 
+func (repo *{{.Name}}Repository) Find(ctx context.Context, meta *models.Pagination) (res []models.{{.Name}}, count int64, err error) {
+	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetWithPagination(meta))
+	if err != nil {
+		return res, count, err
+	}
+	for rows.Next() {
+		{{.LowerName}}, err := repo.scan(rows)
+		if err != nil {
+			return res, count, err
+		}
+		res = append(res, {{.LowerName}})
+	}
+
+	err = repo.pgx.QueryRow(ctx, nil, repo.model.QueryCount()).Scan(&count)
+	if err != nil {
+		return res, count, err
+	}
+	return
+}
+
 func (repo *{{.Name}}Repository) FindAll(ctx context.Context) (res []models.{{.Name}}, err error) {
 	rows, err := repo.pgx.QueryRows(ctx, nil, repo.model.QueryGetAll())
 	if err != nil {

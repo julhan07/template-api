@@ -3,22 +3,23 @@ package handlers
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/go-playground/validator/v10"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type UserHandler struct {
-	service interfaces.UserService
+	service  interfaces.UserService
 	validate *validator.Validate
 }
 
 func NewUserHandler(service interfaces.UserService, validate *validator.Validate) interfaces.UserHandler {
 	return &UserHandler{
-		service: service,
+		service:  service,
 		validate: validate,
 	}
 }
@@ -42,6 +43,20 @@ func (h *UserHandler) Create(c *fiber.Ctx) error {
 	}
 
 	resp := h.service.Create(c.Context(), &user, nil)
+	return c.Status(resp.Status).JSON(resp)
+}
+
+func (h *UserHandler) Find(c *fiber.Ctx) error {
+	meta := new(models.Pagination)
+	if err := c.QueryParser(meta); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	metaParse := meta.ParseMeta()
+	resp := h.service.Find(c.Context(), metaParse)
 	return c.Status(resp.Status).JSON(resp)
 }
 

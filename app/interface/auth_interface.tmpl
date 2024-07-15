@@ -3,16 +3,19 @@ package interfaces
 import (
 	"context"
 
+	"{{.PackagePath}}/app/http/models"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v4"
-	"{{.PackagePath}}/app/http/models"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type AuthService interface {
 	LoginAdmin(ctx context.Context, user *models.UserAdminAuthentication, tx pgx.Tx) *command.Response
+	LoginSelectRole(ctx context.Context, user *models.UserSelectRole, tx pgx.Tx) *command.Response
 }
 
 type AuthHandler interface {
 	LoginAdmin(c *fiber.Ctx) error
+	LoginSelectRole(c *fiber.Ctx) error
 }

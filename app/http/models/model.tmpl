@@ -57,18 +57,28 @@ func (m *{{.Name}}) QueryGetAll() string {
     return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
 }
 
-func (m *{{.Name}}) QueryGetWithPagination(limit, offset int) string {
-    fields := []string{"tb_{{.LowerName}}.id", {{- range .ModelField}} {{- if not .AliasName}}"tb_{{$.LowerName}}.{{.JsonTag}}", {{- else }} `{{.AliasName}} as "{{.JsonTag}}"`, {{- end }} {{- end }} "tb_{{.LowerName}}.created_at", "tb_{{.LowerName}}.updated_at"}
+func (m *{{.Name}}) QueryGetWithPagination(meta *Pagination) string {
+    fields := []string{
+        "tb_{{.LowerName}}.id",
+        {{- range .ModelField}}
+        {{- if not .AliasName}}
+        "tb_{{$.LowerName}}.{{.JsonTag}}",
+        {{- else}}
+        `{{.AliasName}} as "{{.JsonTag}}"`,
+        {{- end}}
+        {{- end}}
+        "tb_{{.LowerName}}.created_at",
+        "tb_{{.LowerName}}.updated_at",
+    }
+
     query := fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
 
-    if limit > 0 {
-        query += fmt.Sprintf(" LIMIT %d", limit)
-        if offset > 0 {
-            query += fmt.Sprintf(" OFFSET %d", offset)
-        }
-    }
+	query += m.BuildMeta(meta)
+    query += fmt.Sprintf(" ORDER BY tb_{{.LowerName}}.%v %v LIMIT %d OFFSET %d", meta.SortBy, meta.Order, meta.Limit, meta.Offset)
     return query
 }
+
+
 
 func (m *{{.Name}}) QueryGetByID() string {
     fields := []string{"tb_{{.LowerName}}.id", {{- range .ModelField}} {{- if not .AliasName}}"tb_{{$.LowerName}}.{{.JsonTag}}", {{- else }} `{{.AliasName}} as "{{.JsonTag}}"`, {{- end }} {{- end }} "tb_{{.LowerName}}.created_at", "tb_{{.LowerName}}.updated_at"}
@@ -97,6 +107,36 @@ func (m *{{.Name}}) QueryDelete() string {
 	return fmt.Sprintf("DELETE FROM %s WHERE id = $1 AND tb_{{.LowerName}}.deleted_at IS NULL", m.TableName())
 }
 
-func (m *{{.Name}}) QueryCount() string {
-    return fmt.Sprintf("SELECT COUNT(*) FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL", m.TableName(), m.JoinClause())
+func (m *{{.Name}}) QueryCount(meta *Pagination) string {
+    return fmt.Sprintf("SELECT COUNT(*) FROM %s %s WHERE tb_{{.LowerName}}.deleted_at IS NULL %v", m.TableName(), m.JoinClause(), m.BuildMeta(meta))
+}
+
+func (m *{{.Name}}) BuildMeta(meta *Pagination) string {
+	var query string
+	if meta.Search != "" {
+        searchConditions := []string{}
+        {{- range .ModelField}}
+        {{- if and (ne .JsonTag "id") (ne .JsonTag "created_at") (ne .JsonTag "updated_at") (ne .JsonTag "deleted_at") (eq .Type "string")}}
+        {{- if not .AliasName}}
+        searchConditions = append(searchConditions, fmt.Sprintf("tb_{{$.LowerName}}.%s LIKE '%%%s%%'", "{{.JsonTag}}", meta.Search))
+        {{- else}}
+        searchConditions = append(searchConditions, fmt.Sprintf("{{.AliasName}} LIKE '%%%s%%'", meta.Search))
+        {{- end}}
+        {{- end}}
+        {{- end}}
+
+        if len(searchConditions) > 0 {
+            query += " AND (" + strings.Join(searchConditions, " OR ") + ")"
+        }
+    }
+
+    if meta.MeParams.ID != 0 {
+        query += fmt.Sprintf(" AND tb_{{.LowerName}}.user_id = %d ", meta.MeParams.ID)
+    }
+
+	if meta.MeParams.ID != 0 {
+		query += fmt.Sprintf(" AND tb_{{.LowerName}}.user_id = %d ", meta.MeParams.ID)
+	}
+
+	return query
 }

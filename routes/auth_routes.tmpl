@@ -1,32 +1,36 @@
 package routes
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/app/http/handlers"
+	"{{.PackagePath}}/app/http/middleware"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/http/service"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/app/repository"
 	"{{.PackagePath}}/config"
 	"{{.PackagePath}}/pkg"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 )
 
 type restAuthRouter struct {
 	router  fiber.Router
 	handler interfaces.AuthHandler
+	jwt     middleware.JwtCredential
 }
 
 func authRouter(pgx *pkg.Pgx, conf config.Config) interfaces.AuthHandler {
 	userRepo := repository.NewUserRepository(*pgx, &models.User{})
-	userService := service.NewAuthService(userRepo, conf.JwtCredential)
+	roleRepo := repository.NewRoleRepository(*pgx, &models.Role{})
+	userService := service.NewAuthService(userRepo, roleRepo, conf.JwtCredential)
 	validateForm := validator.New()
 	return handlers.NewAuthHandler(userService, validateForm)
 }
 
-func NewAuthRouter(router fiber.Router, pgx *pkg.Pgx, conf config.Config) *restAuthRouter {
+func NewAuthRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential, conf config.Config) *restAuthRouter {
 	handler := authRouter(pgx, conf)
-	res := restAuthRouter{router, handler}
+	res := restAuthRouter{router, handler, jwt}
 	res.Setup()
 	return &res
 }
@@ -34,4 +38,5 @@ func NewAuthRouter(router fiber.Router, pgx *pkg.Pgx, conf config.Config) *restA
 func (h *restAuthRouter) Setup() {
 	route := h.router.Group("/api-admin")
 	route.Post("/auth", h.handler.LoginAdmin)
+	route.Post("/auth/select-role", h.jwt.JwtAdminVerify, h.handler.LoginSelectRole)
 }

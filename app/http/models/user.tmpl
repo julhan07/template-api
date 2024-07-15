@@ -87,25 +87,20 @@ func (m *User) QueryGetAll() string {
 	return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_user.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
 }
 
-func (m *User) QueryGetWithPagination(limit, offset int) string {
+func (m *User) QueryGetWithPagination(meta *Pagination) string {
 	fields := []string{"tb_user.id", "tb_user.full_name", "tb_user.email", "tb_user.password", "tb_user.status", "tb_user.email_verification", `COALESCE(
         jsonb_agg(
             jsonb_build_object(
                'id', tb_role.id,
                 'name', tb_role."name",
                 'code', tb_role."code")  
-			)) FILTER (WHERE tb_role.id IS NOT NULL), '[]'
+			) FILTER (WHERE tb_role.id IS NOT NULL), '[]'
     ) AS roles`, "tb_user.last_login_at", "tb_user.phone", "tb_user.phone_verification", "tb_user.created_at", "tb_user.updated_at"}
 	query := fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_user.deleted_at IS NULL", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
 
-	if limit > 0 {
-		query += fmt.Sprintf(" LIMIT %d", limit)
-		if offset > 0 {
-			query += fmt.Sprintf(" OFFSET %d", offset)
-		}
-	}
+	query += fmt.Sprintf(" GROUP BY tb_user.id ORDER BY tb_user.%v %v LIMIT %d OFFSET %d  ", meta.SortBy, meta.Order, meta.Limit, meta.Offset)
 
-	return " GROUP BY tb_user.id" + query
+	return query
 }
 
 func (m *User) QueryGetByID() string {
@@ -115,7 +110,7 @@ func (m *User) QueryGetByID() string {
                	'id', tb_role.id,
                 'name', tb_role."name",
                  'code', tb_role."code")
-		)) FILTER (WHERE tb_role.id IS NOT NULL), '[]'
+		) FILTER (WHERE tb_role.id IS NOT NULL), '[]'
     ) AS roles`, "tb_user.last_login_at", "tb_user.phone", "tb_user.phone_verification", "tb_user.created_at", "tb_user.updated_at"}
 	return fmt.Sprintf("SELECT %s FROM %s %s WHERE tb_user.deleted_at IS NULL AND tb_user.id = $1 GROUP BY tb_user.id", strings.Join(fields, ", "), m.TableName(), m.JoinClause())
 }
@@ -148,9 +143,9 @@ func (m *User) QueryUpdate() string {
 }
 
 func (m *User) QueryDelete() string {
-	return fmt.Sprintf("DELETE FROM %s WHERE id = $1 AND tb_user.deleted_at IS NULL", m.TableName())
+	return fmt.Sprintf("DELETE FROM %s WHERE id = $1 AND tb_user.deleted_at IS NULL", m.TableName()) + " RETURNING id"
 }
 
 func (m *User) QueryCount() string {
-	return fmt.Sprintf("SELECT COUNT(*) FROM %s %s WHERE tb_user.deleted_at IS NULL", m.TableName(), m.JoinClause())
+	return fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE tb_user.deleted_at IS NULL", m.TableName())
 }

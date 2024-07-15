@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"{{.PackagePath}}/app/http/models"
+	"{{.PackagePath}}/pkg"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -18,6 +21,45 @@ type JwtCredential struct {
 
 func (cred JwtCredential) JwtAdminVerify(c *fiber.Ctx) error {
 	return cred.jwtVerify(c, cred.SecretAtKey)
+}
+
+func (cred JwtCredential) SetFeature(apiCode string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		c.Locals("feature", apiCode)
+		return c.Next()
+	}
+}
+func (cred JwtCredential) CkAccess(apiCode string, redis pkg.Redis) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		featureCode := c.Locals("feature")
+		key := fmt.Sprintf("menu_list_role_id:%v", c.Locals("role_id").(int))
+		var menuList []models.MenuView
+		if err := redis.RetrieveDataFromRedis(key, &menuList); err != nil {
+			return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, err.Error()))
+		}
+
+		if len(menuList) == 0 {
+			return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, "Invalid permission"))
+		}
+
+		status := false
+		for _, v := range menuList {
+			if v.Code == featureCode {
+				for i := 0; i < len(v.Actions); i++ {
+					fmt.Println("ac", v.Actions[i].Code == apiCode, v.Actions[i].Status)
+					if v.Actions[i].Code == apiCode && v.Actions[i].Status {
+						status = true
+					}
+				}
+			}
+		}
+
+		if !status {
+			return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, "Invalid api permission"))
+		}
+
+		return c.Next()
+	}
 }
 
 func (cred JwtCredential) JwtUserVerify(c *fiber.Ctx) error {
@@ -49,6 +91,22 @@ func (cred JwtCredential) jwtVerify(c *fiber.Ctx, secretKey string) error {
 	if !token.Valid {
 		return c.Status(fiber.StatusUnauthorized).JSON(command.NewUnauthorizedResponse(http.StatusUnauthorized, "Token is not valid"))
 	}
+
+	claims := token.Claims.(jwt.MapClaims)
+	userId := claims["id"].(float64)
+	activeRole := ""
+	roleId := 0
+
+	if (claims["active_role"]) != nil {
+		roleId = int(claims["role_id"].(float64))
+		activeRole = claims["active_role"].(string)
+		c.Locals("role_id", roleId)
+	}
+	c.Locals("metadata", models.MetaDataUser{
+		ID:         uint(userId),
+		ActiveRole: activeRole,
+		RoleID:     uint(roleId),
+	})
 
 	return c.Next()
 }

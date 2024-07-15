@@ -45,6 +45,26 @@ func (h *{{.Name}}Handler) Create(c *fiber.Ctx) error {
 	return c.Status(resp.Status).JSON(resp)
 }
 
+func (h *{{.Name}}Handler) Find(c *fiber.Ctx) error {
+	me := c.Locals("metadata").(models.MetaDataUser)
+	meta := new(models.Pagination)
+	if err := c.QueryParser(meta); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(command.Response{
+			Status:  fiber.StatusBadRequest,
+			Message: err.Error(),
+		})
+	}
+
+	metaParse := meta.ParseMeta()
+	metaParse.MeParams = models.MeParam{
+		ID:       me.ID,
+		RoleId:   int(me.RoleID),
+		RoleCode: me.ActiveRole,
+	}
+	resp := h.service.Find(c.Context(), metaParse)
+	return c.Status(resp.Status).JSON(resp)
+}
+
 func (h *{{.Name}}Handler) FindAll(c *fiber.Ctx) error {
 	resp := h.service.FindAll(c.Context())
 	return c.Status(resp.Status).JSON(resp)

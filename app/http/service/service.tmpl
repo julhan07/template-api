@@ -28,6 +28,18 @@ func (s *{{.Name}}Service) Create(ctx context.Context, {{.LowerName}} *models.{{
 	return command.NewSuccessResponse(http.StatusCreated, res)
 }
 
+func (s *{{.Name}}Service) Find(ctx context.Context, meta *models.Pagination) *command.Response {
+	res, count, err := s.repo.Find(ctx, meta)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	meta.Total = int(count)
+	metaPagination := meta.ParseMeta()
+
+	return command.NewSuccessWithMetaResponse(http.StatusOK, res, metaPagination)
+}
+
 func (s *{{.Name}}Service) FindAll(ctx context.Context) *command.Response {
 	res, err := s.repo.FindAll(ctx)
 	if err != nil {

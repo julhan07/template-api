@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/app/http/handlers"
 	"{{.PackagePath}}/app/http/middleware"
 	"{{.PackagePath}}/app/http/models"
@@ -10,6 +8,9 @@ import (
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/app/repository"
 	"{{.PackagePath}}/pkg"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 )
 
 type restMenuRouter struct {
@@ -18,15 +19,15 @@ type restMenuRouter struct {
 	jwt     middleware.JwtCredential
 }
 
-func menuRouter(pgx *pkg.Pgx) interfaces.MenuHandler {
+func menuRouter(pgx *pkg.Pgx, redis pkg.Redis) interfaces.MenuHandler {
 	menuRepo := repository.NewMenuRepository(*pgx, &models.Menu{})
-	menuService := service.NewMenuService(menuRepo)
+	menuService := service.NewMenuService(menuRepo, redis)
 	validateForm := validator.New()
 	return handlers.NewMenuHandler(menuService, validateForm)
 }
 
-func NewMenuRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restMenuRouter {
-	handler := menuRouter(pgx)
+func NewMenuRouter(router fiber.Router, pgx *pkg.Pgx, redis pkg.Redis, jwt middleware.JwtCredential) *restMenuRouter {
+	handler := menuRouter(pgx, redis)
 	res := restMenuRouter{router, handler, jwt}
 	res.Setup()
 	return &res

@@ -3,14 +3,16 @@ package interfaces
 import (
 	"context"
 
+	"{{.PackagePath}}/app/http/models"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v4"
-	"{{.PackagePath}}/app/http/models"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type UserRepository interface {
 	Create(ctx context.Context, user *models.User, tx pgx.Tx) (res int, err error)
+	Find(ctx context.Context, meta *models.Pagination) (res []models.User, count int64, err error)
 	FindAll(ctx context.Context) (res []models.User, err error)
 	FindByID(ctx context.Context, id uint) (res models.User, err error)
 	FindByKeyAndValue(ctx context.Context, key, value interface{}) (res models.User, err error)
@@ -20,6 +22,7 @@ type UserRepository interface {
 
 type UserService interface {
 	Create(ctx context.Context, user *models.User, tx pgx.Tx) *command.Response
+	Find(ctx context.Context, meta *models.Pagination) *command.Response
 	FindAll(ctx context.Context) *command.Response
 	GetByID(cxt context.Context, id uint) *command.Response
 	Update(ctx context.Context, user *models.User, tx pgx.Tx) *command.Response
@@ -28,6 +31,7 @@ type UserService interface {
 
 type UserHandler interface {
 	Create(c *fiber.Ctx) error
+	Find(c *fiber.Ctx) error
 	FindAll(c *fiber.Ctx) error
 	GetByID(c *fiber.Ctx) error
 	Update(c *fiber.Ctx) error

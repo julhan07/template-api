@@ -3,22 +3,23 @@ package handlers
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/go-playground/validator/v10"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type RoleHandler struct {
-	service interfaces.RoleService
+	service  interfaces.RoleService
 	validate *validator.Validate
 }
 
 func NewRoleHandler(service interfaces.RoleService, validate *validator.Validate) interfaces.RoleHandler {
 	return &RoleHandler{
-		service: service,
+		service:  service,
 		validate: validate,
 	}
 }

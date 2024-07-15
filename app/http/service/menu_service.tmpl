@@ -2,21 +2,26 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
-	"github.com/jackc/pgx/v4"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
+	"{{.PackagePath}}/pkg"
+
+	"github.com/jackc/pgx/v4"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type MenuService struct {
-	repo interfaces.MenuRepository
+	repo  interfaces.MenuRepository
+	redis pkg.Redis
 }
 
-func NewMenuService(repo interfaces.MenuRepository) interfaces.MenuService {
+func NewMenuService(repo interfaces.MenuRepository, redis pkg.Redis) interfaces.MenuService {
 	return &MenuService{
-		repo: repo,
+		repo:  repo,
+		redis: redis,
 	}
 }
 
@@ -49,6 +54,12 @@ func (s *MenuService) GetMenuByRoleID(cxt context.Context, id uint) *command.Res
 	if err != nil {
 		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
 	}
+
+	if err := s.redis.SaveDataToRedis(fmt.Sprintf("menu_list_role_id:%d", id), res, 0); err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+	fmt.Println("success save menu to redis")
+
 	return command.NewSuccessResponse(http.StatusOK, res)
 }
 

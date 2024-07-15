@@ -3,22 +3,23 @@ package handlers
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/go-playground/validator/v10"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type MenuHandler struct {
-	service interfaces.MenuService
+	service  interfaces.MenuService
 	validate *validator.Validate
 }
 
 func NewMenuHandler(service interfaces.MenuService, validate *validator.Validate) interfaces.MenuHandler {
 	return &MenuHandler{
-		service: service,
+		service:  service,
 		validate: validate,
 	}
 }

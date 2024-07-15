@@ -2,6 +2,20 @@ package models
 
 import "fmt"
 
+var (
+	ApiRead   = "read"
+	ApiCreate = "create"
+	ApiUpdate = "update"
+	ApiDelete = "delete"
+	ApiExport = "export"
+	ApiImport = "import"
+)
+
+var (
+	ApiFeatureUser = "user"
+	ApiFeatureRole = "role"
+)
+
 type MenuView struct {
 	ID        uint             `json:"id"`
 	Name      string           `json:"name"`
@@ -21,7 +35,6 @@ type MenuActionView struct {
 	Status bool   `json:"status" validate:""`
 }
 
-
 type RoleView struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name" validate:"required"`
@@ -35,6 +48,61 @@ type Pagination struct {
 	Total     int    `json:"total"`
 	TotalPage int    `json:"total_page"`
 	Search    string `json:"search" query:"search"`
+	SortBy    string `json:"sort_by" query:"sort_by"`
+	Order     string `json:"order" query:"order"`
+	FirstPage int    `json:"first_page"`
+	LastPage  int    `json:"last_page"`
+	Pages     []int  `json:"pages"`
+}
+
+func (m *Pagination) ParseMeta() *Pagination {
+	if m.Page == 0 {
+		m.Page = 1
+	}
+	if m.Limit == 0 {
+		m.Limit = 10
+	}
+
+	m.Offset = (m.Page - 1) * m.Limit
+
+	if m.SortBy == "" {
+		m.SortBy = "id"
+	}
+
+	if m.Order == "" {
+		m.Order = "desc"
+	}
+
+	m.TotalPage = (m.Total / m.Limit) + 1
+	if m.Total%m.Limit == 0 {
+		m.TotalPage = m.Total / m.Limit
+	}
+
+	m.FirstPage = 1
+	m.LastPage = m.TotalPage
+
+	m.Pages = generatePages(m.Page, m.TotalPage)
+
+	return m
+}
+
+func generatePages(currentPage, totalPages int) []int {
+	var pages []int
+	startPage := currentPage - 2
+	endPage := currentPage + 2
+
+	if startPage < 1 {
+		startPage = 1
+	}
+	if endPage > totalPages {
+		endPage = totalPages
+	}
+
+	for i := startPage; i <= endPage; i++ {
+		pages = append(pages, i)
+	}
+
+	return pages
 }
 
 func StoreRoleMenuSqlCMD() string {

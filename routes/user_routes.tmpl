@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/gofiber/fiber/v2"
 	"{{.PackagePath}}/app/http/handlers"
 	"{{.PackagePath}}/app/http/middleware"
 	"{{.PackagePath}}/app/http/models"
@@ -10,12 +8,16 @@ import (
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/app/repository"
 	"{{.PackagePath}}/pkg"
+
+	"github.com/go-playground/validator/v10"
+	"github.com/gofiber/fiber/v2"
 )
 
 type restUserRouter struct {
 	router  fiber.Router
 	handler interfaces.UserHandler
 	jwt     middleware.JwtCredential
+	redis   pkg.Redis
 }
 
 func userRouter(pgx *pkg.Pgx) interfaces.UserHandler {
@@ -25,9 +27,9 @@ func userRouter(pgx *pkg.Pgx) interfaces.UserHandler {
 	return handlers.NewUserHandler(userService, validateForm)
 }
 
-func NewUserRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredential) *restUserRouter {
+func NewUserRouter(router fiber.Router, pgx *pkg.Pgx, redis pkg.Redis, jwt middleware.JwtCredential) *restUserRouter {
 	handler := userRouter(pgx)
-	res := restUserRouter{router, handler, jwt}
+	res := restUserRouter{router, handler, jwt, redis}
 	res.Setup()
 	return &res
 }
@@ -35,9 +37,10 @@ func NewUserRouter(router fiber.Router, pgx *pkg.Pgx, jwt middleware.JwtCredenti
 func (h *restUserRouter) Setup() {
 	apiAdmin := h.router.Group("/api-admin")
 	apiAdmin.Use(h.jwt.JwtAdminVerify)
-	apiAdmin.Get("/user", h.handler.FindAll)
-	apiAdmin.Get("/user/id/:id", h.handler.GetByID)
-	apiAdmin.Post("/user", h.handler.Create)
-	apiAdmin.Put("/user/id/:id", h.handler.Update)
-	apiAdmin.Delete("/user/id/:id", h.handler.Delete)
+	apiAdmin.Use(h.jwt.SetFeature(models.ApiFeatureUser))
+	apiAdmin.Get("/user", h.jwt.CkAccess(models.ApiRead, h.redis), h.handler.Find)
+	apiAdmin.Get("/user/id/:id", h.jwt.CkAccess(models.ApiRead, h.redis), h.handler.GetByID)
+	apiAdmin.Post("/user", h.jwt.CkAccess(models.ApiCreate, h.redis), h.handler.Create)
+	apiAdmin.Put("/user/id/:id", h.jwt.CkAccess(models.ApiUpdate, h.redis), h.handler.Update)
+	apiAdmin.Delete("/user/id/:id", h.jwt.CkAccess(models.ApiDelete, h.redis), h.handler.Delete)
 }

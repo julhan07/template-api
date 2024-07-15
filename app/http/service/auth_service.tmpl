@@ -6,23 +6,26 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v4"
 	"{{.PackagePath}}/app/http/middleware"
 	"{{.PackagePath}}/app/http/models"
 	"{{.PackagePath}}/app/interfaces"
 	"{{.PackagePath}}/utils"
+
+	"github.com/jackc/pgx/v4"
 	command "github.com/julhan07/go-kampasi-command"
 )
 
 type AuthService struct {
-	repo interfaces.UserRepository
-	jwt  middleware.JwtCredential
+	repo     interfaces.UserRepository
+	repoRole interfaces.RoleRepository
+	jwt      middleware.JwtCredential
 }
 
-func NewAuthService(repo interfaces.UserRepository, jwt middleware.JwtCredential) interfaces.AuthService {
+func NewAuthService(repo interfaces.UserRepository, repoRole interfaces.RoleRepository, jwt middleware.JwtCredential) interfaces.AuthService {
 	return &AuthService{
-		repo: repo,
-		jwt:  jwt,
+		repo:     repo,
+		repoRole: repoRole,
+		jwt:      jwt,
 	}
 }
 
@@ -37,17 +40,15 @@ func (s *AuthService) LoginAdmin(ctx context.Context, userCred *models.UserAdmin
 		return command.NewErrorResponse(http.StatusBadGateway, "invalid password")
 	}
 
+	if !user.Status {
+		return command.NewErrorResponse(http.StatusBadGateway, "user not active")
+	}
+
 	jwtPayload := map[string]interface{}{
-		"id":       user.ID,
-		"role_ids": user.RoleIDs,
+		"id": user.ID,
 	}
 
-	AcToken, err := s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretAtKey, s.jwt.ExpiredAcToken*time.Minute)
-	if err != nil {
-		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
-	}
-
-	refreshToken, err := s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretRtKey, s.jwt.ExpiredRtToken*time.Minute)
+	AcToken, refreshToken, err := s.generateJWT(jwtPayload)
 	if err != nil {
 		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
 	}
@@ -62,7 +63,53 @@ func (s *AuthService) LoginAdmin(ctx context.Context, userCred *models.UserAdmin
 	resp := models.UserCredential{
 		AccessToken:  AcToken,
 		RefreshToken: refreshToken,
+		RoleOption:   user.Roles,
 	}
 
 	return command.NewSuccessResponse(http.StatusOK, resp)
+}
+
+func (s *AuthService) LoginSelectRole(ctx context.Context, userCred *models.UserSelectRole, tx pgx.Tx) *command.Response {
+
+	role, err := s.repoRole.FindByKeyAndValue(ctx, "tb_role.code", userCred.RoleCode)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusNotFound, err.Error())
+	}
+
+	user, err := s.repo.FindByID(ctx, uint(userCred.UserId))
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	jwtPayload := map[string]interface{}{
+		"id":          user.ID,
+		"active_role": role.Code,
+		"role_id":     role.ID,
+	}
+
+	AcToken, refreshToken, err := s.generateJWT(jwtPayload)
+	if err != nil {
+		return command.NewErrorResponse(http.StatusBadGateway, err.Error())
+	}
+
+	resp := models.UserCredential{
+		AccessToken:  AcToken,
+		RefreshToken: refreshToken,
+	}
+
+	return command.NewSuccessResponse(http.StatusOK, resp)
+}
+
+func (s *AuthService) generateJWT(jwtPayload map[string]interface{}) (acToken, rfToken string, err error) {
+	acToken, err = s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretAtKey, s.jwt.ExpiredAcToken*time.Minute)
+	if err != nil {
+		return "", "", err
+	}
+
+	rfToken, err = s.jwt.GenerateJWT(jwtPayload, s.jwt.SecretRtKey, s.jwt.ExpiredRtToken*time.Minute)
+	if err != nil {
+		return "", "", err
+	}
+
+	return acToken, rfToken, nil
 }
